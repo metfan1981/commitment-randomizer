@@ -5,16 +5,14 @@ import (
 	"testing"
 )
 
-const simDays = 90
-const monteCarloRuns = 1000
-
 func TestSimulate(t *testing.T) {
 	config, err := loadConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	numBlocks := simDays / config.BlockDays
+	yearBlocks := 365 / config.BlockDays
+	quarterBlocks := 90 / config.BlockDays
 
 	totalWeight := 0
 	for _, p := range config.Pillars {
@@ -23,12 +21,14 @@ func TestSimulate(t *testing.T) {
 
 	history := History{Entries: []HistoryEntry{}}
 
-	fmt.Printf("\n=== Simulating %d block assignments (%d days, %d-day blocks) ===\n",
-		numBlocks, simDays, config.BlockDays)
+	fmt.Printf("\n=== Simulating 1 year: %d blocks (%d-day blocks) ===\n",
+		yearBlocks, config.BlockDays)
 	fmt.Printf("Config: max_consecutive=%d, correction_factor=%.0f\n\n",
 		config.MaxConsecutive, config.CorrectionFactor)
 
-	for i := 0; i < numBlocks; i++ {
+	quarterCounts := make(map[string]int)
+
+	for i := 0; i < yearBlocks; i++ {
 		streaks := recentStreaks(history.Entries, config.MaxConsecutive)
 		candidates := eligiblePillars(config.Pillars, streaks, config.MaxConsecutive)
 		candidates = adjustedWeights(candidates, history.Entries, config.CorrectionFactor)
@@ -40,114 +40,74 @@ func TestSimulate(t *testing.T) {
 		}
 		history.Entries = append(history.Entries, entry)
 
-		fmt.Printf("  Block %2d: %s\n", entry.Block, chosen.Name)
+		fmt.Printf("  Block %3d: %s\n", entry.Block, chosen.Name)
+
+		if i < quarterBlocks {
+			quarterCounts[chosen.Name]++
+		}
 	}
 
-	counts := make(map[string]int)
+	yearCounts := make(map[string]int)
 	for _, e := range history.Entries {
-		counts[e.Pillar]++
+		yearCounts[e.Pillar]++
 	}
 
-	fmt.Println("\n=== Distribution vs Target ===")
-	fmt.Printf("  %-45s %6s %6s %6s %6s\n", "Pillar", "Target", "Actual", "Tgt#", "Act#")
-	fmt.Println("  " + "-----------------------------------------------------------------------")
-
-	for _, p := range config.Pillars {
-		targetPct := float64(p.Weight) / float64(totalWeight) * 100
-		actualPct := float64(counts[p.Name]) / float64(numBlocks) * 100
-		targetN := float64(p.Weight) / float64(totalWeight) * float64(numBlocks)
-		actualN := counts[p.Name]
-		delta := actualPct - targetPct
-		sign := "+"
-		if delta <= 0 {
-			sign = ""
-		}
-		fmt.Printf("  %-45s %5.1f%% %5.1f%% %5.1f  %4d   %s%.1f%%\n",
-			p.Name, targetPct, actualPct, targetN, actualN, sign, delta)
-	}
-	fmt.Println()
-
-	fmt.Printf("=== Monte Carlo: %d runs of %d blocks (average distribution) ===\n", monteCarloRuns, numBlocks)
-	totalCounts := make(map[string]int)
-
-	for r := 0; r < monteCarloRuns; r++ {
-		h := History{Entries: []HistoryEntry{}}
-		for i := 0; i < numBlocks; i++ {
-			streaks := recentStreaks(h.Entries, config.MaxConsecutive)
-			candidates := eligiblePillars(config.Pillars, streaks, config.MaxConsecutive)
-			candidates = adjustedWeights(candidates, h.Entries, config.CorrectionFactor)
-			chosen := weightedPick(candidates)
-			h.Entries = append(h.Entries, HistoryEntry{Pillar: chosen.Name, Block: i + 1})
-		}
-		for _, e := range h.Entries {
-			totalCounts[e.Pillar]++
-		}
-	}
-
-	fmt.Printf("  %-45s %6s %6s %6s\n", "Pillar", "Target", "Avg", "Delta")
-	fmt.Println("  " + "-----------------------------------------------------------------------")
-	for _, p := range config.Pillars {
-		targetPct := float64(p.Weight) / float64(totalWeight) * 100
-		avgPct := float64(totalCounts[p.Name]) / float64(monteCarloRuns*numBlocks) * 100
-		delta := avgPct - targetPct
-		sign := "+"
-		if delta <= 0 {
-			sign = ""
-		}
-		fmt.Printf("  %-45s %5.1f%% %5.1f%%  %s%.1f%%\n",
-			p.Name, targetPct, avgPct, sign, delta)
-	}
-	fmt.Println()
-
-	fmt.Printf("=== Streak stats (from %d runs) ===\n", monteCarloRuns)
-	type streakStat struct {
-		maxStreak int
-		total     int
-		count     int
-	}
-	streakStats := make(map[string]*streakStat)
-	for _, p := range config.Pillars {
-		streakStats[p.Name] = &streakStat{}
-	}
-
-	for r := 0; r < monteCarloRuns; r++ {
-		h := History{Entries: []HistoryEntry{}}
-		for i := 0; i < numBlocks; i++ {
-			s := recentStreaks(h.Entries, config.MaxConsecutive)
-			c := eligiblePillars(config.Pillars, s, config.MaxConsecutive)
-			c = adjustedWeights(c, h.Entries, config.CorrectionFactor)
-			chosen := weightedPick(c)
-			h.Entries = append(h.Entries, HistoryEntry{Pillar: chosen.Name, Block: i + 1})
-		}
+	printDistribution := func(label string, days int, numBlocks int, counts map[string]int) {
+		fmt.Printf("\n=== %s: %d blocks (%d days) ===\n", label, numBlocks, days)
+		fmt.Printf("  %-45s %6s %6s %6s %6s %7s\n", "Pillar", "Target", "Actual", "Tgt#", "Act#", "Delta")
+		fmt.Println("  " + "---------------------------------------------------------------------------------")
 
 		for _, p := range config.Pillars {
-			maxS := 0
-			cur := 0
-			for _, e := range h.Entries {
-				if e.Pillar == p.Name {
-					cur++
-					if cur > maxS {
-						maxS = cur
-					}
-				} else {
-					cur = 0
-				}
+			targetPct := float64(p.Weight) / float64(totalWeight) * 100
+			actualPct := float64(counts[p.Name]) / float64(numBlocks) * 100
+			targetN := float64(p.Weight) / float64(totalWeight) * float64(numBlocks)
+			actualN := counts[p.Name]
+			delta := actualPct - targetPct
+			sign := "+"
+			if delta <= 0 {
+				sign = ""
 			}
-			ss := streakStats[p.Name]
-			if maxS > ss.maxStreak {
-				ss.maxStreak = maxS
+			fmt.Printf("  %-45s %5.1f%% %5.1f%% %5.1f  %4d   %s%.1f%%\n",
+				p.Name, targetPct, actualPct, targetN, actualN, sign, delta)
+		}
+
+		fmt.Println()
+		fmt.Printf("  %-45s %6s\n", "Pillar", "Days")
+		fmt.Println("  " + "---------------------------------------------------------------------------------")
+		for _, p := range config.Pillars {
+			targetDays := float64(p.Weight) / float64(totalWeight) * float64(days)
+			actualDays := counts[p.Name] * config.BlockDays
+			daysDelta := actualDays - int(targetDays+0.5)
+			sign := "+"
+			if daysDelta <= 0 {
+				sign = ""
 			}
-			ss.total += maxS
-			ss.count++
+			fmt.Printf("  %-45s target %3.0f  actual %3d  (%s%d days)\n",
+				p.Name, targetDays, actualDays, sign, daysDelta)
 		}
 	}
 
-	fmt.Printf("  %-45s %10s %10s\n", "Pillar", "Avg Max", "Overall Max")
-	fmt.Println("  " + "-----------------------------------------------------------------------")
+	printDistribution("First 90 days", 90, quarterBlocks, quarterCounts)
+	printDistribution("Full year", 365, yearBlocks, yearCounts)
+
+	fmt.Println("\n=== Streaks observed (full year) ===")
+	fmt.Printf("  %-45s %10s\n", "Pillar", "Max streak")
+	fmt.Println("  " + "---------------------------------------------------------------------------------")
 	for _, p := range config.Pillars {
-		ss := streakStats[p.Name]
-		fmt.Printf("  %-45s %8.1f %10d\n",
-			p.Name, float64(ss.total)/float64(ss.count), ss.maxStreak)
+		maxS := 0
+		cur := 0
+		for _, e := range history.Entries {
+			if e.Pillar == p.Name {
+				cur++
+				if cur > maxS {
+					maxS = cur
+				}
+			} else {
+				cur = 0
+			}
+		}
+		fmt.Printf("  %-45s %6d blocks (%d days)\n",
+			p.Name, maxS, maxS*config.BlockDays)
 	}
 	fmt.Println()
 }

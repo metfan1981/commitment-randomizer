@@ -8,6 +8,6 @@ go.work.sum
 .env
 
 # App artifacts
-history.yaml
+data/history.yaml
 randomizer
 journal/*

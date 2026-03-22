@@ -27,7 +27,7 @@ This is not a calendar or planner. It is a **commitment generator**.
 
 ## Step 1: Define your pillars
 
-Before running anything, open `config.yaml` and make it yours. This is where you decide what matters — your focus areas, how much weight each one gets, and the rules of the game.
+Before running anything, open `data/config.yaml` and make it yours. This is where you decide what matters — your focus areas, how much weight each one gets, and the rules of the game.
 
 ```yaml
 # EXAMPLE — replace with your own pillars and weights
@@ -113,6 +113,9 @@ make build
 ./randomizer
 # usage help
 ./randomizer -h
+
+# simulate 3 months to check weight distribution
+make sim
 ```
 
 Output:
@@ -134,7 +137,7 @@ That's it. Run it once every 2 days (or whenever your current block ends).
 
 ## History
 
-Past assignments are stored in `history.yaml` (auto-created on first run). The file is append-only and looks like this:
+Past assignments are stored in `data/history.yaml` (auto-created on first run). The file is append-only and looks like this:
 
 ```yaml
 entries:
@@ -150,7 +153,7 @@ History is used for:
 - Streak detection (anti-repetition)
 - Long-term distribution integrity
 
-To start fresh, delete `history.yaml`.
+To start fresh, delete `data/history.yaml`.
 
 ## How selection works
 
@@ -192,12 +195,17 @@ Replace the path with wherever you cloned the repo. Then reload your shell (`sou
 
 ```
 .
-├── main.go          # All application logic
-├── config.yaml      # Editable settings (pillars, weights, rules)
-├── history.yaml     # Auto-generated assignment log (gitignored)
+├── main.go          # CLI entry point — flags, output, glue
+├── config.go        # Pillar/Config types and loader
+├── history.go       # History types, load/save
+├── engine.go        # Core algorithm: streaks, eligibility, weights, pick
+├── sim_test.go      # Monte Carlo simulation for config tuning
+├── data/
+│   ├── config.yaml  # Editable settings (pillars, weights, rules)
+│   └── history.yaml # Auto-generated assignment log (gitignored)
 ├── journal/         # Optional per-pillar context files
 ├── run.sh           # Run from anywhere wrapper
-├── Makefile         # build / run targets
+├── Makefile         # build / run / sim targets
 ├── go.mod
 └── go.sum
 ```
