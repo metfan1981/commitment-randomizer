@@ -6,8 +6,10 @@ profile.cov
 go.work
 go.work.sum
 .env
+data/.env
 
 # App artifacts
 data/history.yaml
+commitment-randomizer
 randomizer
 journal/*
