@@ -1,28 +1,27 @@
-# EXAMPLE config — replace with your own pillars and weights
-# ----------------------------------------------------------#
-
-# Focus pillars and their weights (out of 100)
-# Weights control long-term probability distribution
-pillars:
-  - name: Drawing
-    weight: 40
-  - name: Language
-    weight: 25
-  - name: Exercise Research
-    weight: 15
-  - name: Home Tasks
-    weight: 20
-    journal: journal/home-tasks
-
-
 # How many days each focus block lasts
+# advice: keep 2
+  # Day 1 gives you the novelty hit and potential hyperfocus. Day 2 forces follow-through, which is exactly the muscle ADHD brains need to build
 block_days: 2
 
 # Max times the same pillar can be assigned consecutively
 # before it's temporarily excluded from selection
-max_consecutive: 3
+max_consecutive: 2
 
 # How aggressively the system corrects distribution drift.
 # 0 = pure random (no correction), higher = tighter monthly balance.
 # Recommended range: 2-5. Start with 3.
-correction_factor: 3
+correction_factor: 4
+
+# Focus pillars and their weights (out of 100)
+# Weights control long-term probability distribution
+pillars:
+  - name: Music (learn guitar and write some new)
+    weight: 40
+  - name: Dutch (grammar, NOS vids)
+    weight: 25
+  - name: Chores
+    weight: 15
+    journal: journal/chores
+  - name: carte blanche
+    weight: 20
+    journal: journal/cb
